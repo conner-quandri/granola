@@ -320,14 +320,25 @@ def extract_meeting_notes(cache_path, output_format='json', output_file=None):
     else:
         print(output_content)
 
+def get_default_cache_path():
+    """Get the default Granola cache path for the current user."""
+    home = Path.home()
+    cache_path = home / "Library" / "Application Support" / "Granola" / "cache-v3.json"
+    return str(cache_path)
+
+def get_default_output_dir():
+    """Get the default output directory in the current script directory."""
+    script_dir = Path(__file__).parent.resolve()
+    return str(script_dir / "daily_outputs")
+
 def main():
     parser = argparse.ArgumentParser(description='Extract meeting notes from Granola cache')
     parser.add_argument('--cache-path', 
-                       default='~/Library/Application Support/Granola/cache-v3.json',
-                       help='Path to Granola cache file')
+                       default=get_default_cache_path(),
+                       help='Path to Granola cache file (default: ~/Library/Application Support/Granola/cache-v3.json)')
     parser.add_argument('--output-dir',
-                       default='daily_outputs',
-                       help='Base directory for organized meeting files (default: daily_outputs)')
+                       default=get_default_output_dir(),
+                       help='Base directory for organized meeting files (default: ~/granola-notes)')
     parser.add_argument('--legacy-mode',
                        action='store_true',
                        help='Use legacy output format (single file or stdout)')
@@ -345,6 +356,8 @@ def main():
     
     if not cache_path.exists():
         print(f"Cache file not found: {cache_path}")
+        print(f"Please ensure Granola is installed and has meeting data.")
+        print(f"Expected location: {cache_path}")
         sys.exit(1)
     
     if args.legacy_mode:

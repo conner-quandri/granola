@@ -5,23 +5,51 @@ A Python script to extract and organize meeting notes from [Granola](https://gra
 ## Features
 
 - 📝 **Rich Content Extraction**: Pulls actual meeting content from Granola's internal cache
-- 📁 **Date Organization**: Organizes meetings into `daily_outputs/YYYY-MM-DD/` directories
+- 📁 **Date Organization**: Organizes meetings into `~/granola-notes/YYYY-MM-DD/` directories
 - 📄 **Individual Files**: Each meeting becomes its own markdown file
 - 🔄 **Multiple Formats**: Support for JSON and Markdown output
 - ⏰ **Cron Job Ready**: Easy automation with included setup script
 - 🛡️ **Safe Filenames**: Automatically sanitizes meeting titles for filesystem compatibility
 - 🔍 **Duplicate Handling**: Handles meetings with identical titles by adding timestamps
+- 👥 **Multi-User Support**: Works for any Mac user with automatic path detection
+
+## Installation
+
+### Prerequisites
+
+- macOS with Granola app installed
+- Python 3.6+ (pre-installed on macOS)
+- Meeting data in Granola (at least one meeting recorded)
+
+### Setup
+
+1. **Clone or download this repository:**
+   ```bash
+   git clone https://github.com/becevior/granola.git
+   cd granola
+   ```
+
+2. **Make the script executable:**
+   ```bash
+   chmod +x extract_meeting_notes.py setup_cron.sh
+   ```
+
+3. **Test the extraction:**
+   ```bash
+   python3 extract_meeting_notes.py
+   ```
+   This will create a `~/granola-notes/` directory with your meetings organized by date.
 
 ## Quick Start
 
 ### Basic Usage
 
 ```bash
-# Extract all meetings to daily_outputs/ directory
+# Extract all meetings to ~/granola-notes/ directory
 python3 extract_meeting_notes.py
 
 # Custom output directory
-python3 extract_meeting_notes.py --output-dir my_meetings
+python3 extract_meeting_notes.py --output-dir ~/my-meetings
 
 # Legacy mode (single file output)
 python3 extract_meeting_notes.py --legacy-mode --format markdown --output all_meetings.md
@@ -36,10 +64,10 @@ python3 extract_meeting_notes.py --legacy-mode --format markdown --output all_me
 
 ## Directory Structure
 
-The script creates the following structure:
+The script creates the following structure in your home directory:
 
 ```
-daily_outputs/
+~/granola-notes/
 ├── 2025-08-15/
 │   └── AI Sports broadcaster concept development.md
 ├── 2025-07-09/
@@ -60,7 +88,7 @@ Options:
   --cache-path PATH     Path to Granola cache file 
                        (default: ~/Library/Application Support/Granola/cache-v3.json)
   --output-dir DIR      Base directory for organized meeting files 
-                       (default: daily_outputs)
+                       (default: ~/granola-notes)
   --legacy-mode        Use legacy output format (single file or stdout)
   --format FORMAT      Output format for legacy mode: json|markdown 
                        (default: markdown)
@@ -120,14 +148,16 @@ To set up manually or customize timing:
 # Edit cron jobs
 crontab -e
 
-# Add this line for every 5 minutes:
-*/5 * * * * /usr/bin/python3 "/Users/beckwith/workplace/granola/extract_meeting_notes.py" --output-dir "/Users/beckwith/workplace/granola/daily_outputs" >> "/Users/beckwith/workplace/granola/cron.log" 2>&1
+# Add this line for every 5 minutes (replace /path/to/script with actual path):
+*/5 * * * * /usr/bin/python3 "/path/to/extract_meeting_notes.py" --output-dir "$HOME/granola-notes" >> "/path/to/cron.log" 2>&1
 
 # Other timing examples:
 # Every hour:     0 * * * *
 # Every 30 min:   */30 * * * *
 # Daily at 9 AM:  0 9 * * *
 ```
+
+**Note**: The setup script automatically handles path detection, so it's recommended to use `./setup_cron.sh` instead of manual configuration.
 
 ### Managing Cron Jobs
 
@@ -160,9 +190,24 @@ crontab -l | grep -v 'extract_meeting_notes.py' | crontab -
 
 ### Common Issues
 
-- **Cache file not found**: Ensure Granola is installed and has meeting data
-- **Permission errors**: Make sure the script has write access to output directory
-- **Cron job not running**: Check cron logs and verify absolute paths
+- **Cache file not found**: 
+  - Ensure Granola is installed and has meeting data
+  - Check if cache exists: `ls ~/Library/Application\ Support/Granola/cache-v3.json`
+  - Try recording a test meeting in Granola first
+
+- **Permission errors**: 
+  - Make sure the script has write access to output directory
+  - Check that `~/granola-notes` is writable: `ls -la ~/granola-notes`
+
+- **Cron job not running**: 
+  - Verify cron service is running: `sudo launchctl list | grep cron`
+  - Check cron logs in the script directory
+  - Ensure absolute paths are used in cron entries
+
+- **Different user setup**:
+  - Each user needs to run the setup on their own account
+  - Cache paths are user-specific (`~/Library/Application Support/Granola/`)
+  - Output goes to each user's home directory (`~/granola-notes/`)
 
 ### Debugging
 
@@ -170,12 +215,27 @@ crontab -l | grep -v 'extract_meeting_notes.py' | crontab -
 # Test the script manually
 python3 extract_meeting_notes.py
 
-# Check cron logs
+# Check if Granola cache exists
+ls -la ~/Library/Application\ Support/Granola/
+
+# Check cron logs (in script directory)
 tail -f cron.log
 
 # Verify cron job is scheduled
 crontab -l
+
+# Test with verbose output
+python3 extract_meeting_notes.py --output-dir ~/test-granola
 ```
+
+### For System Administrators
+
+To deploy this for multiple users:
+
+1. Each user should clone/download the repository to their own directory
+2. Each user runs `./setup_cron.sh` from their copy
+3. Outputs go to each user's `~/granola-notes/` directory
+4. Cron jobs run under each user's account with their permissions
 
 ## License
 
