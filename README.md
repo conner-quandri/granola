@@ -69,14 +69,14 @@ The script creates the following structure in your home directory:
 ```
 ~/granola-notes/
 ├── 2025-08-15/
-│   └── AI Sports broadcaster concept development.md
+│   └── Meeting1.md
 ├── 2025-07-09/
-│   ├── Drug policy pipeline update with Sanket and Ben.md
-│   └── Another meeting from same day.md
+│   ├── Meeting2.md
+│   └── Meeting3.md
 └── 2025-06-23/
-    ├── Meta startup program interview with Azadeh.md
-    ├── PyTorch Q&A system design planning.md
-    └── Weekly engineering roadmap review.md
+    ├── Meeting4.md
+    ├── Meeting5.md
+    └── Meeting6.md
 ```
 
 ## Command Line Options
@@ -107,27 +107,18 @@ Each meeting file contains:
 Example:
 
 ```markdown
-# AI Sports broadcaster concept development
+# Meeting Title
 
 **Created:** 2025-08-15 21:13:10
 **Updated:** 2025-08-19 19:44:29
-**ID:** 5dcb42d3-07dc-490f-abd7-068888bd3b9c
+**ID:** abc123def-4567-8901-2345-678901234567
 
 ## Meeting Content
 
 ### Summary
 
-- Developing YC application for AI-powered personalized sports commentary platform
-- Core value proposition: compete with Instagram/TikTok-style sports content
-
-### Current Sports Media Pain Points
-
-- ESPN/SportsCenter viewing experience widely disliked
-- Consumption fragmented across platforms (TikTok, reels, YouTube, Twitter, Reddit)
-
 ## Participants
 
-- Conner (creator)
 ```
 
 ## Automation
