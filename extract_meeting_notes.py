@@ -121,37 +121,66 @@ def load_granola_cache(cache_path):
             data = json.load(f)
             cache_data = json.loads(data['cache'])
             state = cache_data['state']
-            return state['documents'], state.get('documentPanels', {})
+            return state['documents'], state.get('documentPanels', {}), state.get('transcripts', {})
     except Exception as e:
         print(f"Error loading cache file: {e}")
         sys.exit(1)
+
+def format_transcript_as_markdown(transcript_segments):
+    """Format transcript segments as markdown."""
+    if not transcript_segments:
+        return ""
+
+    markdown = "## Raw Transcript\n\n"
+
+    for segment in transcript_segments:
+        # Format timestamp
+        try:
+            start_time = datetime.fromisoformat(segment['start_timestamp'].replace('Z', '+00:00'))
+            timestamp_str = start_time.strftime('%H:%M:%S')
+        except:
+            timestamp_str = segment.get('start_timestamp', '')
+
+        # Determine speaker label
+        source = segment.get('source', 'unknown')
+        if source == 'microphone':
+            speaker = 'You'
+        elif source == 'system':
+            speaker = 'Other'
+        else:
+            speaker = source.capitalize()
+
+        text = segment.get('text', '')
+        markdown += f"**[{timestamp_str}] {speaker}:** {text}\n\n"
+
+    return markdown
 
 def format_meeting_as_markdown(meeting):
     """Format a single meeting as markdown."""
     title = meeting.get('title', 'Untitled Meeting')
     created_at = meeting.get('created_at', '')
     updated_at = meeting.get('updated_at', '')
-    
+
     # Parse dates
     try:
         created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
     except:
         created_date = created_at
-    
+
     try:
         updated_date = datetime.fromisoformat(updated_at.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
     except:
         updated_date = updated_at
-    
+
     markdown = f"# {title}\n\n"
     markdown += f"**Created:** {created_date}\n"
     markdown += f"**Updated:** {updated_date}\n"
     markdown += f"**ID:** {meeting.get('id', 'N/A')}\n\n"
-    
+
     # Add summary if available
     if meeting.get('summary'):
         markdown += f"## Summary\n\n{meeting['summary']}\n\n"
-    
+
     # Add rich content from panels
     panels = meeting.get('panels', [])
     if panels:
@@ -162,31 +191,31 @@ def format_meeting_as_markdown(meeting):
             content_markdown = convert_rich_content_to_markdown(panel.get('content'))
             if content_markdown:
                 markdown += f"{content_markdown}\n\n"
-    
+
     # Fallback to old notes format if no panels
     if not panels:
         notes_markdown = meeting.get('notes_markdown')
         notes_plain = meeting.get('notes_plain')
         notes = meeting.get('notes')
-        
+
         if notes_markdown:
             markdown += f"## Notes\n\n{notes_markdown}\n\n"
         elif notes_plain:
             markdown += f"## Notes\n\n{notes_plain}\n\n"
         elif notes:
             markdown += f"## Notes\n\n{str(notes)}\n\n"
-    
+
     # Add people if available
     if meeting.get('people'):
         people_data = meeting['people']
         markdown += "## Participants\n\n"
-        
+
         # Add creator
         if people_data.get('creator'):
             creator = people_data['creator']
             creator_name = creator.get('name', 'Unknown')
             markdown += f"- {creator_name} (creator)\n"
-        
+
         # Add attendees
         if people_data.get('attendees'):
             for attendee in people_data['attendees']:
@@ -195,27 +224,36 @@ def format_meeting_as_markdown(meeting):
                     markdown += f"- {attendee_name}\n"
                 elif isinstance(attendee, str):
                     markdown += f"- {attendee}\n"
-        
+
         markdown += "\n"
-    
+
+    # Add transcript if available
+    if meeting.get('transcript'):
+        transcript_markdown = format_transcript_as_markdown(meeting['transcript'])
+        if transcript_markdown:
+            markdown += transcript_markdown
+
     return markdown
 
 def extract_meeting_notes_to_files(cache_path, base_output_dir='daily_outputs'):
     """Extract meeting notes from Granola cache as individual files organized by date."""
-    documents, document_panels = load_granola_cache(cache_path)
-    
+    documents, document_panels, transcripts = load_granola_cache(cache_path)
+
     # Create base output directory (make it absolute)
     base_path = Path(base_output_dir).expanduser().resolve()
     base_path.mkdir(exist_ok=True)
-    
+
     meetings_processed = 0
     meetings_by_date = {}
-    
+
     for doc_id, meeting in documents.items():
         if meeting.get('deleted_at') is None:  # Only include non-deleted meetings
             # Get panels for this meeting
             panels = get_meeting_panels(doc_id, document_panels)
-            
+
+            # Get transcript for this meeting
+            transcript = transcripts.get(doc_id, [])
+
             meeting_data = {
                 'id': meeting.get('id'),
                 'title': meeting.get('title'),
@@ -228,37 +266,33 @@ def extract_meeting_notes_to_files(cache_path, base_output_dir='daily_outputs'):
                 'people': meeting.get('people', []),
                 'type': meeting.get('type'),
                 'valid_meeting': meeting.get('valid_meeting', False),
-                'panels': panels
+                'panels': panels,
+                'transcript': transcript
             }
-            
+
             # Get date for directory organization
             meeting_date = get_meeting_date(meeting.get('created_at', ''))
-            
+
             # Create date directory
             date_dir = base_path / meeting_date
             date_dir.mkdir(exist_ok=True)
-            
-            # Create safe filename
+
+            # Create safe filename with timestamp to ensure uniqueness
             title = meeting.get('title', 'Untitled Meeting')
             safe_title = sanitize_filename(title)
-            filename = f"{safe_title}.md"
-            
-            # Handle duplicate filenames by adding timestamp
+            timestamp = meeting.get('created_at', '').replace(':', '-').replace('Z', '')
+            filename = f"{safe_title}_{timestamp}.md"
             file_path = date_dir / filename
-            if file_path.exists():
-                timestamp = meeting.get('created_at', '').replace(':', '-').replace('Z', '')
-                filename = f"{safe_title}_{timestamp}.md"
-                file_path = date_dir / filename
-            
+
             # Generate markdown content
             markdown_content = format_meeting_as_markdown(meeting_data)
-            
+
             # Write to file
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(markdown_content)
-            
+
             meetings_processed += 1
-            
+
             # Track meetings by date for summary
             if meeting_date not in meetings_by_date:
                 meetings_by_date[meeting_date] = []
@@ -266,7 +300,7 @@ def extract_meeting_notes_to_files(cache_path, base_output_dir='daily_outputs'):
                 'title': title,
                 'filename': filename
             })
-    
+
     # Print summary
     print(f"Exported {meetings_processed} meetings to {base_output_dir}/")
     print(f"Organized into {len(meetings_by_date)} date directories:")
@@ -275,14 +309,17 @@ def extract_meeting_notes_to_files(cache_path, base_output_dir='daily_outputs'):
 
 def extract_meeting_notes(cache_path, output_format='json', output_file=None):
     """Extract meeting notes from Granola cache (legacy format)."""
-    documents, document_panels = load_granola_cache(cache_path)
-    
+    documents, document_panels, transcripts = load_granola_cache(cache_path)
+
     meetings = []
     for doc_id, meeting in documents.items():
         if meeting.get('deleted_at') is None:  # Only include non-deleted meetings
             # Get panels for this meeting
             panels = get_meeting_panels(doc_id, document_panels)
-            
+
+            # Get transcript for this meeting
+            transcript = transcripts.get(doc_id, [])
+
             meeting_data = {
                 'id': meeting.get('id'),
                 'title': meeting.get('title'),
@@ -295,7 +332,8 @@ def extract_meeting_notes(cache_path, output_format='json', output_file=None):
                 'people': meeting.get('people', []),
                 'type': meeting.get('type'),
                 'valid_meeting': meeting.get('valid_meeting', False),
-                'panels': panels
+                'panels': panels,
+                'transcript': transcript
             }
             meetings.append(meeting_data)
     
